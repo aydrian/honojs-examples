@@ -1,0 +1,38 @@
+/**
+ * For more details on how to configure Wrangler, refer to:
+ * https://developers.cloudflare.com/workers/wrangler/configuration/
+ */
+{
+	"$schema": "node_modules/wrangler/config-schema.json",
+	"name": "auth0-auth",
+	"main": "src/index.ts",
+	"compatibility_date": "2026-05-21",
+	"compatibility_flags": [
+		"nodejs_compat"
+	],
+	"observability": {
+		"enabled": true
+	},
+	"upload_source_maps": true,
+	/**
+	 * KV namespace for guestbook signatures.
+	 * Create one with:
+	 *   npx wrangler kv namespace create GUESTBOOK
+	 * Then paste the returned `id` below.
+	 */
+	"kv_namespaces": [
+		{
+			"binding": "GUESTBOOK",
+			"id": "<paste-your-kv-namespace-id-here>"
+		}
+	]
+	/**
+	 * Auth0 secrets are loaded from .dev.vars locally and from
+	 * Worker secrets in production:
+	 *   npx wrangler secret put AUTH0_DOMAIN
+	 *   npx wrangler secret put AUTH0_CLIENT_ID
+	 *   npx wrangler secret put AUTH0_CLIENT_SECRET
+	 *   npx wrangler secret put BASE_URL
+	 *   npx wrangler secret put AUTH0_SESSION_ENCRYPTION_KEY
+	 */
+}

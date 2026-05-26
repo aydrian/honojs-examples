@@ -15,6 +15,7 @@ This repository contains examples that use [Hono](https://hono.dev).
 - [bun](./bun/) - Bun example
 - [pages-stack](./pages-stack/) - Zod + Zod Validator + `hc` + React on Cloudflare Pages
 - [stytch-auth](./stytch-auth) - TODO App built with Stytch Auth + Cloudflare Workers + `vite`
+- [auth0-auth](./auth0-auth) - Guestbook app with Auth0 authentication on Cloudflare Workers
 
 ## Running Examples
 

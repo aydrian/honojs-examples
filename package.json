@@ -11,7 +11,8 @@
     "nextjs-stack",
     "hono-vite-jsx",
     "env-vars",
-    "stytch-auth"
+    "stytch-auth",
+    "auth0-auth"
   ],
   "license": "MIT",
   "packageManager": "npm@10.0.0"

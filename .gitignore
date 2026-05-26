@@ -4,7 +4,8 @@ worker
 .wrangler
 package-lock.json
 yarn.lock
-bun.lockb
+bun.lockb // legacy bun lockfile
+bun.lock
 deno.lock
 
 # Output of 'npm pack'
