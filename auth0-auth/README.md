@@ -101,7 +101,7 @@ cp .dev.vars.example .dev.vars
 AUTH0_DOMAIN=your-tenant.us.auth0.com
 AUTH0_CLIENT_ID=your_client_id
 AUTH0_CLIENT_SECRET=your_client_secret
-BASE_URL=http://localhost:8787
+APP_BASE_URL=http://localhost:8787
 AUTH0_SESSION_ENCRYPTION_KEY=a_random_string_at_least_32_characters_long
 ```
 
@@ -143,7 +143,7 @@ All five are required.
 | `AUTH0_DOMAIN`                 | Your Auth0 tenant domain, e.g. `your-tenant.us.auth0.com`.           |
 | `AUTH0_CLIENT_ID`              | Client ID from your Auth0 Regular Web Application.                   |
 | `AUTH0_CLIENT_SECRET`          | Client Secret from your Auth0 Regular Web Application.               |
-| `BASE_URL`                     | Public base URL of the app — `http://localhost:8787` for local dev.  |
+| `APP_BASE_URL`                 | Public base URL of the app — `http://localhost:8787` for local dev.  |
 | `AUTH0_SESSION_ENCRYPTION_KEY` | Random string, at least 32 chars, used to encrypt the session cookie. |
 
 For local dev these live in `.dev.vars`. For production, push them as Worker secrets:
@@ -156,7 +156,7 @@ npx wrangler secret bulk .dev.vars
 
 1. Make sure the KV namespace `id` is in `wrangler.jsonc` (see step 2 above).
 2. In Auth0, add your deployed origin (e.g. `https://auth0-auth.<account>.workers.dev`) to **Allowed Callback URLs** (`/auth/callback`) and **Allowed Logout URLs**.
-3. Update `BASE_URL` in `.dev.vars` to your deployed origin, then push secrets and deploy:
+3. Update `APP_BASE_URL` in `.dev.vars` to your deployed origin, then push secrets and deploy:
 
    ```bash
    npx wrangler secret bulk .dev.vars
@@ -169,9 +169,9 @@ Auth is mounted once at the root of the app. With `authRequired: false`, routes 
 
 ```ts
 // src/index.ts
-import { auth } from "@auth0/auth0-hono";
+import { auth0 } from "@auth0/auth0-hono";
 
-app.use(auth({ authRequired: false }));
+app.use(auth0({ authRequired: false }));
 app.route("/", guestbook);
 ```
 
@@ -184,10 +184,15 @@ guestbook.get("/sign", requiresAuth(), async (c) => { ... });
 guestbook.post("/sign", requiresAuth(), async (c) => { ... });
 ```
 
-User identity is read inside route handlers via the SDK's client, which reads the session cookie:
+User identity is populated on every request by the middleware. Read it from `c.var.auth0` for optional auth, or use the `getUser(c)` helper inside `requiresAuth()` routes:
 
 ```ts
-const user = await c.var.auth0Client?.getUser(c);
+// Public route — user may be null
+const user = c.var.auth0?.user ?? null;
+
+// Protected route — getUser returns non-null and throws if the session is missing
+import { getUser } from "@auth0/auth0-hono";
+const user = getUser(c);
 // user.sub, user.name, user.picture, user.email, ...
 ```
 

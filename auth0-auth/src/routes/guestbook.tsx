@@ -1,5 +1,5 @@
 import { Hono } from "hono";
-import { requiresAuth, type OIDCEnv } from "@auth0/auth0-hono";
+import { getUser, requiresAuth, type OIDCEnv } from "@auth0/auth0-hono";
 import { Home } from "../views/Home";
 import { MAX_MESSAGE_LENGTH, Sign } from "../views/Sign";
 import { addSignature, listRecent } from "../lib/storage";
@@ -9,18 +9,18 @@ type Env = OIDCEnv<CloudflareBindings>;
 export const guestbook = new Hono<Env>();
 
 guestbook.get("/", async (c) => {
-  const user = (await c.var.auth0Client?.getUser(c)) ?? null;
+  const user = c.var.auth0?.user ?? null;
   const signatures = await listRecent(c.env.GUESTBOOK);
   return c.html(<Home signatures={signatures} user={user} />);
 });
 
-guestbook.get("/sign", requiresAuth(), async (c) => {
-  const user = (await c.var.auth0Client?.getUser(c))!;
+guestbook.get("/sign", requiresAuth(), (c) => {
+  const user = getUser(c);
   return c.html(<Sign user={user} />);
 });
 
 guestbook.post("/sign", requiresAuth(), async (c) => {
-  const user = (await c.var.auth0Client?.getUser(c))!;
+  const user = getUser(c);
   const form = await c.req.formData();
   const message = String(form.get("message") ?? "").trim();
 

@@ -1,5 +1,5 @@
 import { Hono } from "hono";
-import { auth, type OIDCEnv } from "@auth0/auth0-hono";
+import { auth0, type OIDCEnv } from "@auth0/auth0-hono";
 import { guestbook } from "./routes/guestbook";
 import { FAVICON_SVG } from "./lib/favicon";
 
@@ -18,7 +18,7 @@ app.get("/favicon.ico", (c) =>
 );
 
 // Auth0 middleware. Reads AUTH0_DOMAIN, AUTH0_CLIENT_ID, AUTH0_CLIENT_SECRET,
-// BASE_URL, and AUTH0_SESSION_ENCRYPTION_KEY from the environment, and
+// APP_BASE_URL, and AUTH0_SESSION_ENCRYPTION_KEY from the environment, and
 // registers /auth/login, /auth/logout, and /auth/callback routes automatically.
 //
 // `authRequired: false` opts the app into per-route protection — see
@@ -29,7 +29,7 @@ app.get("/favicon.ico", (c) =>
 // drops our app's session cookie — Auth0 still has a live SSO session and the
 // next /auth/login silently re-authenticates the same user without showing
 // the Universal Login screen.
-app.use(auth({ authRequired: false, idpLogout: true }));
+app.use(auth0({ authRequired: false, idpLogout: true }));
 
 app.route("/", guestbook);
 
