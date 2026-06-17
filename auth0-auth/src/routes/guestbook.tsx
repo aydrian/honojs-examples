@@ -1,7 +1,6 @@
 import { Hono, type MiddlewareHandler } from "hono";
 import { some } from "hono/combine";
 import {
-  getUser,
   requiresAuth,
   claimIncludes,
   type OIDCEnv,
@@ -19,7 +18,7 @@ const ROLES_CLAIM = "https://example.com/roles";
 // Passes only when the authenticated user is the author of the targeted entry.
 // Used with some() so admins (via claimIncludes) can bypass this check.
 const ownerOnly: MiddlewareHandler<Env> = async (c, next) => {
-  const user = getUser(c);
+  const user = c.var.auth0.user!;
   const createdAt = Number(c.req.param("createdAt"));
   const signatures = await listRecent(c.env.GUESTBOOK, 100);
   const target = signatures.find((s) => s.createdAt === createdAt);
@@ -33,7 +32,7 @@ const ownerOnly: MiddlewareHandler<Env> = async (c, next) => {
 export const guestbook = new Hono<Env>();
 
 guestbook.get("/", async (c) => {
-  const rawUser = c.var.auth0?.user ?? null;
+  const rawUser = c.var.auth0.user;
   const user = rawUser
     ? {
         name: rawUser.name,
@@ -47,7 +46,7 @@ guestbook.get("/", async (c) => {
 });
 
 guestbook.get("/sign", requiresAuth(), (c) => {
-  const rawUser = getUser(c);
+  const rawUser = c.var.auth0.user!;
   const user = {
     name: rawUser.name,
     picture: rawUser.picture,
@@ -57,7 +56,7 @@ guestbook.get("/sign", requiresAuth(), (c) => {
 });
 
 guestbook.post("/sign", requiresAuth(), async (c) => {
-  const user = getUser(c);
+  const user = c.var.auth0.user!;
   const form = await c.req.formData();
   const message = String(form.get("message") ?? "").trim();
 
