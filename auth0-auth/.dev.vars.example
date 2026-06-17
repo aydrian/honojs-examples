@@ -17,3 +17,7 @@ APP_BASE_URL=http://localhost:8787
 # Random string, at least 32 characters. Generate with:
 #   openssl rand -hex 32
 AUTH0_SESSION_ENCRYPTION_KEY=
+
+# Identifier of the Auth0 API Resource Server (set by `npm run setup`).
+# This causes Auth0 to issue a JWT access token and embed `permissions` when RBAC is enabled.
+AUTH0_AUDIENCE=
