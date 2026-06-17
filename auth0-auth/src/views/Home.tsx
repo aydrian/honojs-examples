@@ -26,8 +26,14 @@ export const Home: FC<HomeProps> = ({ signatures, user }) => (
     <header class="page-head">
       <h1>The Hono Guestbook</h1>
       <p class="lede">
-        A small log of who passed through. Sign in with Auth0 to leave your own
-        line.
+        {user ? (
+          <>
+            A small log of who passed through.{" "}
+            <a href="/sign">Leave your own line →</a>
+          </>
+        ) : (
+          "A small log of who passed through. Sign in with Auth0 to leave your own line."
+        )}
       </p>
       <span class="status">
         <span class="dot" aria-hidden="true"></span>
