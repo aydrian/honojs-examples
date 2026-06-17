@@ -3,7 +3,7 @@ import { raw } from "hono/html";
 import { Layout } from "./Layout";
 
 type SignProps = {
-  user: { name?: string; picture?: string; roles?: string[] };
+  user: { name?: string; picture?: string; permissions?: string[] };
   error?: string;
   draft?: string;
 };

@@ -4,7 +4,7 @@ import { FAVICON_DATA_URI } from "../lib/favicon";
 
 type LayoutProps = PropsWithChildren<{
   title?: string;
-  user?: { name?: string; picture?: string; roles?: string[] } | null;
+  user?: { name?: string; picture?: string; permissions?: string[] } | null;
 }>;
 
 export const Layout: FC<LayoutProps> = ({
@@ -654,7 +654,7 @@ button::before {
                 <span class="nav-who">
                   <span class="nav-who-avatar">
                     {user.picture ? <img src={user.picture} alt="" /> : null}
-                    {user.roles?.includes("admin") ? (
+                    {user.permissions?.includes("delete:any_entry") ? (
                       <span
                         class="admin-crown"
                         aria-label="admin"

@@ -4,7 +4,7 @@ import type { Signature } from "../lib/storage";
 
 type HomeProps = {
   signatures: Signature[];
-  user?: { name?: string; picture?: string; sub?: string; roles?: string[] } | null;
+  user?: { name?: string; picture?: string; sub?: string; permissions?: string[] } | null;
 };
 
 const formatWhen = (ts: number) => {
@@ -52,7 +52,7 @@ export const Home: FC<HomeProps> = ({ signatures, user }) => (
     ) : (
       <div class="stream">
         {signatures.map((s, i) => {
-          const isAdmin = user?.roles?.includes("admin") ?? false;
+          const isAdmin = user?.permissions?.includes("delete:any_entry") ?? false;
           const isOwner = user?.sub === s.sub;
           const canDelete = isAdmin || isOwner;
           const deleteAction = `/sign/${s.createdAt}/delete`;
