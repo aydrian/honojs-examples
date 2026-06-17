@@ -137,15 +137,16 @@ Visit [http://localhost:8787](http://localhost:8787) — you'll see the empty gu
 
 ## Environment variables
 
-All five are required.
+All six are required (the first five are written by `npm run setup`; `AUTH0_AUDIENCE` is also written automatically by the setup script).
 
-| Variable                       | Description                                                          |
-| ------------------------------ | -------------------------------------------------------------------- |
-| `AUTH0_DOMAIN`                 | Your Auth0 tenant domain, e.g. `your-tenant.us.auth0.com`.           |
-| `AUTH0_CLIENT_ID`              | Client ID from your Auth0 Regular Web Application.                   |
-| `AUTH0_CLIENT_SECRET`          | Client Secret from your Auth0 Regular Web Application.               |
-| `APP_BASE_URL`                 | Public base URL of the app — `http://localhost:8787` for local dev.  |
-| `AUTH0_SESSION_ENCRYPTION_KEY` | Random string, at least 32 chars, used to encrypt the session cookie. |
+| Variable                       | Description                                                                                                                             |
+| ------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------- |
+| `AUTH0_DOMAIN`                 | Your Auth0 tenant domain, e.g. `your-tenant.us.auth0.com`.                                                                              |
+| `AUTH0_CLIENT_ID`              | Client ID from your Auth0 Regular Web Application.                                                                                      |
+| `AUTH0_CLIENT_SECRET`          | Client Secret from your Auth0 Regular Web Application.                                                                                  |
+| `APP_BASE_URL`                 | Public base URL of the app — `http://localhost:8787` for local dev.                                                                     |
+| `AUTH0_SESSION_ENCRYPTION_KEY` | Random string, at least 32 chars, used to encrypt the session cookie.                                                                   |
+| `AUTH0_AUDIENCE`               | Identifier of the Auth0 API Resource Server. Causes Auth0 to issue a JWT access token and embed `permissions` when RBAC is enabled.     |
 
 For local dev these live in `.dev.vars`. For production, push them as Worker secrets:
 
@@ -199,21 +200,35 @@ const user = getUser(c);
 
 See the [`@auth0/auth0-hono` docs](https://github.com/auth0/auth0-hono) for advanced options (claim-based authorization, custom routes, silent login, PAR, etc.).
 
-### Claim-based authorization
+### Permission-based authorization
 
-The delete route uses `claimIncludes` from `@auth0/auth0-hono` combined with Hono's `some()` combinator from `hono/combine` to express OR-logic in the middleware stack:
+The delete route uses `hasPermission` (a local middleware factory) combined with Hono's `some()` combinator from `hono/combine` to express OR-logic in the middleware stack:
 
 ```tsx
 // src/routes/guestbook.tsx
 import { some } from "hono/combine";
-import { requiresAuth, claimIncludes } from "@auth0/auth0-hono";
+import { requiresAuth, getAccessToken } from "@auth0/auth0-hono";
+
+const hasPermission =
+  (permission: string): MiddlewareHandler<Env> =>
+  async (c, next) => {
+    const tokenSet = await getAccessToken(c);
+    const payload = decodeJwtPayload(tokenSet.accessToken); // base64url decode
+    const permissions = Array.isArray(payload.permissions)
+      ? (payload.permissions as string[])
+      : [];
+    if (permissions.includes(permission)) {
+      await next();
+    } else {
+      return c.text("Forbidden", 403);
+    }
+  };
 
 guestbook.post(
   "/sign/:createdAt/delete",
   requiresAuth(),
-  some(claimIncludes("roles", "admin"), ownerOnly),
+  some(hasPermission("delete:any_entry"), ownerOnly),
   async (c) => {
-    // authorization already resolved — just delete
     await deleteSignature(c.env.GUESTBOOK, createdAt);
     return c.redirect("/");
   },
@@ -222,51 +237,34 @@ guestbook.post(
 
 `some()` runs each middleware in sequence and passes as soon as one calls `next()`. If a middleware returns a response without calling `next()`, `some()` tries the next option. If all fail, the last failure response is returned.
 
-- **`claimIncludes("https://example.com/roles", "admin")`** — passes immediately for admins (the namespaced roles claim contains `"admin"`). The handler runs without reading the database.
+- **`hasPermission("delete:any_entry")`** — passes immediately for users whose access token contains `delete:any_entry` in the `permissions` claim. Auth0 embeds this automatically when RBAC is enabled on the API — no Post-Login Action required.
 - **`ownerOnly`** — custom middleware that reads the `sub` JWT claim and compares it against the stored signature's author. Passes if they match, returns 403 otherwise.
 
-For `claimIncludes` to work, a namespaced `roles` claim must be present on the ID token. See [Admin role setup](#admin-role-setup) below.
+## Permission-based delete access
 
-## Admin role setup
+The `npm run setup` script automatically creates the Auth0 API Resource Server and enables RBAC. To grant a user the ability to delete any guestbook entry, assign the `delete:any_entry` permission directly to their account — no role required.
 
-The roles claim on the ID token is populated by an Auth0 Post-Login Action. Follow these steps once to enable admin delete access.
-
-### 1. Create the role
+### 1. Find the user's ID
 
 ```bash
-auth0 roles create --name admin --description "Can delete any guestbook entry"
+auth0 users search --query "email:you@example.com" --json | jq -r '.[0].user_id'
 ```
 
-### 2. Assign the role to a user
+### 2. Grant the permission
 
 ```bash
-# Find the user's ID
-auth0 users search --query "email:you@example.com"
-
-# Find the role ID
-auth0 roles list
-
-# Assign
-auth0 users roles assign <user-id> --roles <role-id>
+# Replace <user-id> and <api-identifier> with your values.
+# The API identifier was written to AUTH0_AUDIENCE in .dev.vars by npm run setup.
+auth0 api post "users/<user-id>/permissions" \
+  --data '{"permissions":[{"resource_server_identifier":"<api-identifier>","permission_name":"delete:any_entry"}]}'
 ```
 
-### 3. Create a Post-Login Action
+### 3. Re-login
 
-In the [Auth0 Dashboard](https://manage.auth0.com/) go to **Actions → Library → Build Custom** and create a new action triggered by **Login / Post Login**. Paste this code:
+Sign out and back in. The `delete:any_entry` permission will be embedded in the next access token and the `×` delete button will appear on all entries for that user.
 
-```javascript
-exports.onExecutePostLogin = async (event, api) => {
-  const roles = event.authorization?.roles ?? [];
-  api.idToken.setCustomClaim("https://example.com/roles", roles);
-};
-```
+> **Why re-login?** The access token is issued at login time. An existing session has the old token (without the permission). Signing out and back in forces a new token with updated permissions.
 
-Deploy the action and drag it into the **Login** flow under **Actions → Flows → Login**.
+> **No Post-Login Action or role needed.** Auth0 embeds `permissions` in the access token natively when RBAC is configured on the API. There is no need to write a custom Action to copy claims, and no need to create a role.
 
-> **Namespace:** Auth0 requires custom claim names to be fully-qualified URLs to avoid conflicts with standard OIDC claims. The URL doesn't need to resolve anywhere — it's a namespace convention. Replace `example.com` with your own domain in production. The namespace used in the Action must exactly match the one in `ROLES_CLAIM` in `src/routes/guestbook.tsx`.
-
-> **Why is this Action necessary?** Auth0 does not automatically include roles in the ID token — there is no tenant or application setting that does this. `event.authorization.roles` is available to this Action at login time, but it only exists within the Action's execution context. Calling `api.idToken.setCustomClaim()` is what transfers those roles into the signed JWT that the application reads. No Action means no roles claim in the token, which means `claimIncludes` never passes and the delete buttons never appear.
-
-### 4. Re-login
-
-Sign out and back in. The new `roles` claim will appear in your session and the `×` delete button will appear on all entries for your admin account.
+> **Removing an old Post-Login Action.** If you previously set up the role-based approach, go to **Auth0 Dashboard → Actions → Flows → Login**, remove the action that sets `https://example.com/roles`, and delete it from **Actions → Library**.
