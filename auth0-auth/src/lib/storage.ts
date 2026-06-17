@@ -25,3 +25,14 @@ export async function addSignature(
   const next = [signature, ...existing].slice(0, MAX_STORED);
   await kv.put(KEY, JSON.stringify(next));
 }
+
+export async function deleteSignature(
+  kv: KVNamespace,
+  createdAt: number,
+): Promise<boolean> {
+  const existing = (await kv.get<Signature[]>(KEY, "json")) ?? [];
+  const next = existing.filter((s) => s.createdAt !== createdAt);
+  if (next.length === existing.length) return false;
+  await kv.put(KEY, JSON.stringify(next));
+  return true;
+}

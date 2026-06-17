@@ -6,6 +6,7 @@ The app is a guestbook:
 
 - **`/`** — public homepage. Anyone can see the most recent 20 signatures.
 - **`/sign`** — protected. Only logged-in users can leave a message; their name and avatar come from their Auth0 profile.
+- **`/sign/:id/delete`** — protected. A user can delete their own entry; admins can delete any entry (`claimIncludes` + `some()`).
 - **`/auth/login`**, **`/auth/logout`**, **`/auth/callback`** — provided automatically by `@auth0/auth0-hono`.
 
 Signatures are stored in [Workers KV](https://developers.cloudflare.com/kv/).
@@ -197,3 +198,75 @@ const user = getUser(c);
 ```
 
 See the [`@auth0/auth0-hono` docs](https://github.com/auth0/auth0-hono) for advanced options (claim-based authorization, custom routes, silent login, PAR, etc.).
+
+### Claim-based authorization
+
+The delete route uses `claimIncludes` from `@auth0/auth0-hono` combined with Hono's `some()` combinator from `hono/combine` to express OR-logic in the middleware stack:
+
+```tsx
+// src/routes/guestbook.tsx
+import { some } from "hono/combine";
+import { requiresAuth, claimIncludes } from "@auth0/auth0-hono";
+
+guestbook.post(
+  "/sign/:createdAt/delete",
+  requiresAuth(),
+  some(claimIncludes("roles", "admin"), ownerOnly),
+  async (c) => {
+    // authorization already resolved — just delete
+    await deleteSignature(c.env.GUESTBOOK, createdAt);
+    return c.redirect("/");
+  },
+);
+```
+
+`some()` runs each middleware in sequence and passes as soon as one calls `next()`. If a middleware returns a response without calling `next()`, `some()` tries the next option. If all fail, the last failure response is returned.
+
+- **`claimIncludes("https://example.com/roles", "admin")`** — passes immediately for admins (the namespaced roles claim contains `"admin"`). The handler runs without reading the database.
+- **`ownerOnly`** — custom middleware that reads the `sub` JWT claim and compares it against the stored signature's author. Passes if they match, returns 403 otherwise.
+
+For `claimIncludes` to work, a namespaced `roles` claim must be present on the ID token. See [Admin role setup](#admin-role-setup) below.
+
+## Admin role setup
+
+The roles claim on the ID token is populated by an Auth0 Post-Login Action. Follow these steps once to enable admin delete access.
+
+### 1. Create the role
+
+```bash
+auth0 roles create --name admin --description "Can delete any guestbook entry"
+```
+
+### 2. Assign the role to a user
+
+```bash
+# Find the user's ID
+auth0 users search --query "email:you@example.com"
+
+# Find the role ID
+auth0 roles list
+
+# Assign
+auth0 users roles assign <user-id> --roles <role-id>
+```
+
+### 3. Create a Post-Login Action
+
+In the [Auth0 Dashboard](https://manage.auth0.com/) go to **Actions → Library → Build Custom** and create a new action triggered by **Login / Post Login**. Paste this code:
+
+```javascript
+exports.onExecutePostLogin = async (event, api) => {
+  const roles = event.authorization?.roles ?? [];
+  api.idToken.setCustomClaim("https://example.com/roles", roles);
+};
+```
+
+Deploy the action and drag it into the **Login** flow under **Actions → Flows → Login**.
+
+> **Namespace:** Auth0 requires custom claim names to be fully-qualified URLs to avoid conflicts with standard OIDC claims. The URL doesn't need to resolve anywhere — it's a namespace convention. Replace `example.com` with your own domain in production. The namespace used in the Action must exactly match the one in `ROLES_CLAIM` in `src/routes/guestbook.tsx`.
+
+> **Why is this Action necessary?** Auth0 does not automatically include roles in the ID token — there is no tenant or application setting that does this. `event.authorization.roles` is available to this Action at login time, but it only exists within the Action's execution context. Calling `api.idToken.setCustomClaim()` is what transfers those roles into the signed JWT that the application reads. No Action means no roles claim in the token, which means `claimIncludes` never passes and the delete buttons never appear.
+
+### 4. Re-login
+
+Sign out and back in. The new `roles` claim will appear in your session and the `×` delete button will appear on all entries for your admin account.

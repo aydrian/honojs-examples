@@ -1,16 +1,16 @@
-import type { FC, PropsWithChildren } from "hono/jsx";
 import { raw } from "hono/html";
+import type { FC, PropsWithChildren } from "hono/jsx";
 import { FAVICON_DATA_URI } from "../lib/favicon";
 
 type LayoutProps = PropsWithChildren<{
   title?: string;
-  user?: { name?: string; picture?: string } | null;
+  user?: { name?: string; picture?: string; roles?: string[] } | null;
 }>;
 
 export const Layout: FC<LayoutProps> = ({
   title = "The Hono Guestbook",
   user,
-  children,
+  children
 }) => (
   <html lang="en">
     <head>
@@ -29,7 +29,8 @@ export const Layout: FC<LayoutProps> = ({
         rel="stylesheet"
         href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500;600&display=swap"
       />
-      <style>{raw(`/* Hallmark · macrostructure: Long Document · genre: atmospheric · theme: Terminal
+      <style>
+        {raw(`/* Hallmark · macrostructure: Long Document · genre: atmospheric · theme: Terminal
  * paper-band: dark · display-style: mono · accent-hue: chromatic-other (phosphor)
  * nav: N7 mono-toolbar · footer: Ft7 mono-note · enrichment: none
  * tone: technical / dev-tool · audience: Hono + Auth0 + Cloudflare developers
@@ -202,13 +203,35 @@ p { margin: 0; }
   min-width: 0;
 }
 
+.nav-who-avatar {
+  position: relative;
+  display: flex;
+  flex-shrink: 0;
+}
+
 .nav-who img {
   width: 24px;
   height: 24px;
   border-radius: 50%;
   border: var(--rule);
-  flex-shrink: 0;
   display: block;
+}
+
+.admin-crown {
+  position: absolute;
+  bottom: -3px;
+  right: -3px;
+  font-size: 13px;
+  line-height: 1;
+  color: var(--color-accent);
+  background: white;
+  border-radius: 50%;
+  width: 14px;
+  height: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
 }
 
 .nav-who-name {
@@ -401,6 +424,34 @@ main { flex: 1; }
   margin: 0;
 }
 
+/* Delete form + button */
+form.delete-form {
+  display: contents;
+}
+
+.delete-btn {
+  background: transparent;
+  color: var(--color-ink-3);
+  border: 1px solid var(--color-rule-strong);
+  padding: 2px 7px;
+  font-size: var(--text-xs);
+  font-weight: 400;
+  align-self: auto;
+  letter-spacing: 0.04em;
+  transition: background var(--dur-fast) var(--ease-out),
+              color var(--dur-fast) var(--ease-out),
+              border-color var(--dur-fast) var(--ease-out);
+}
+
+.delete-btn::before { content: ""; }
+
+.delete-btn:hover {
+  background: var(--color-error-bg);
+  color: var(--color-error);
+  border-color: var(--color-error);
+  transform: none;
+}
+
 /* Empty state */
 .empty {
   padding: var(--space-3xl) 0;
@@ -587,7 +638,8 @@ button::before {
 }
 
 .foot a:hover { color: var(--color-accent); }
-`)}</style>
+`)}
+      </style>
     </head>
     <body>
       <div class="shell">
@@ -600,7 +652,18 @@ button::before {
             {user ? (
               <>
                 <span class="nav-who">
-                  {user.picture ? <img src={user.picture} alt="" /> : null}
+                  <span class="nav-who-avatar">
+                    {user.picture ? <img src={user.picture} alt="" /> : null}
+                    {user.roles?.includes("admin") ? (
+                      <span
+                        class="admin-crown"
+                        aria-label="admin"
+                        title="admin"
+                      >
+                        ♛
+                      </span>
+                    ) : null}
+                  </span>
                   <span class="nav-who-name">{user.name ?? "you"}</span>
                 </span>
                 <a class="btn" href="/sign">

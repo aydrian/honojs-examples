@@ -4,7 +4,7 @@ import type { Signature } from "../lib/storage";
 
 type HomeProps = {
   signatures: Signature[];
-  user?: { name?: string; picture?: string } | null;
+  user?: { name?: string; picture?: string; sub?: string; roles?: string[] } | null;
 };
 
 const formatWhen = (ts: number) => {
@@ -51,18 +51,31 @@ export const Home: FC<HomeProps> = ({ signatures, user }) => (
       </div>
     ) : (
       <div class="stream">
-        {signatures.map((s, i) => (
-          <article class="entry" style={`--i: ${i}`}>
-            <header>
-              {s.picture ? <img src={s.picture} alt="" /> : null}
-              <span class="name">{s.name}</span>
-              <time dateTime={new Date(s.createdAt).toISOString()}>
-                {formatWhen(s.createdAt)}
-              </time>
-            </header>
-            <p class="message">{s.message}</p>
-          </article>
-        ))}
+        {signatures.map((s, i) => {
+          const isAdmin = user?.roles?.includes("admin") ?? false;
+          const isOwner = user?.sub === s.sub;
+          const canDelete = isAdmin || isOwner;
+          const deleteAction = `/sign/${s.createdAt}/delete`;
+          return (
+            <article class="entry" style={`--i: ${i}`}>
+              <header>
+                {s.picture ? <img src={s.picture} alt="" /> : null}
+                <span class="name">{s.name}</span>
+                <time dateTime={new Date(s.createdAt).toISOString()}>
+                  {formatWhen(s.createdAt)}
+                </time>
+                {canDelete ? (
+                  <form class="delete-form" method="post" action={deleteAction}>
+                    <button type="submit" class="delete-btn" aria-label="Delete entry">
+                      ×
+                    </button>
+                  </form>
+                ) : null}
+              </header>
+              <p class="message">{s.message}</p>
+            </article>
+          );
+        })}
       </div>
     )}
   </Layout>
