@@ -89,8 +89,9 @@ fi
 
 # 7. Create API Resource Server ----------------------------------------------
 # The API identifier becomes AUTH0_AUDIENCE and is included as `aud` in the
-# access token. Using the tenant domain as the identifier is a common convention.
-API_IDENTIFIER="https://guestbook.${AUTH0_DOMAIN}"
+# access token. This URL does not need to resolve — it is a logical identifier.
+# Auth0 blocks identifiers on *.auth0.com domains, so we use example.com instead.
+API_IDENTIFIER="https://guestbook.example.com"
 echo "→ Creating Auth0 API \"Hono Guestbook API\" (identifier: $API_IDENTIFIER)..."
 API_JSON="$(auth0 apis create \
   ${TENANT_FLAG[@]+"${TENANT_FLAG[@]}"} \
