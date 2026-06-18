@@ -115,7 +115,7 @@ fi
 echo "→ Enabling RBAC on API..."
 auth0 api patch "resource-servers/$API_ID" \
   ${TENANT_FLAG[@]+"${TENANT_FLAG[@]}"} \
-  --data '{"enforce_policies":true,"token_dialect":"access_token_authz","skip_consent_for_verifiable_first_party_clients":true}' >/dev/null
+  --data '{"enforce_policies":true,"token_dialect":"access_token_authz","skip_consent_for_verifiable_first_party_clients":true,"subject_type_authorization":{"user":{"policy":"allow_all"},"client":{"policy":"require_client_grant"}}}' >/dev/null
 
 # 9. Authorize the app to request tokens for the API -------------------------
 # Without this client grant, Auth0 rejects the authorization request with
