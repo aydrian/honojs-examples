@@ -111,12 +111,21 @@ fi
 # 8. Enable RBAC on the API --------------------------------------------------
 # enforce_policies=true  → Auth0 RBAC enforcement
 # token_dialect=access_token_authz → embeds permissions[] in the access token JWT
+# skip_consent_for_verifiable_first_party_clients=true → no consent screen for this app
 echo "→ Enabling RBAC on API..."
 auth0 api patch "resource-servers/$API_ID" \
   ${TENANT_FLAG[@]+"${TENANT_FLAG[@]}"} \
-  --data '{"enforce_policies":true,"token_dialect":"access_token_authz"}' >/dev/null
+  --data '{"enforce_policies":true,"token_dialect":"access_token_authz","skip_consent_for_verifiable_first_party_clients":true}' >/dev/null
 
-# 9. Generate session key ----------------------------------------------------
+# 9. Authorize the app to request tokens for the API -------------------------
+# Without this client grant, Auth0 rejects the authorization request with
+# "Client is not authorized to access resource server".
+echo "→ Authorizing app to access API..."
+auth0 api post "client-grants" \
+  ${TENANT_FLAG[@]+"${TENANT_FLAG[@]}"} \
+  --data "{\"client_id\":\"$CLIENT_ID\",\"audience\":\"$API_IDENTIFIER\",\"scope\":[]}" >/dev/null
+
+# 10. Generate session key ---------------------------------------------------
 SESSION_KEY="$(openssl rand -hex 32)"
 
 # 10. Write .dev.vars --------------------------------------------------------
